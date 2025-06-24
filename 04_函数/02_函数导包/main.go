@@ -7,6 +7,6 @@ import "Go_learn/04_函数/02_函数导包/second"
 import "Go_learn/04_函数/02_函数导包/first"
 
 func main() {
-	package2.Package2Test()
 	package1.Package1Test()
+	package2.Package2Test()
 }
