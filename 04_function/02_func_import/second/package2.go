@@ -1,6 +1,6 @@
 package package2
 
-import "Go_learn/04_函数/02_函数导包/third"
+import "Go_learn/04_function/02_func_import/third"
 
 func Package2Test() {
 	println("package2Test()...")

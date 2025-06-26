@@ -5,6 +5,10 @@ package main
 
 import "fmt"
 
+func valChange(cityMap map[string]string) {
+	cityMap["India"] = "DeLi"
+}
+
 func main() {
 
 	// 第一种声明方式
@@ -32,4 +36,48 @@ func main() {
 	myMap1["tow"] = "C++"
 	myMap1["three"] = "Java"
 	fmt.Println(myMap1)
+
+	// 第三种声明方式
+	myMap2 := map[string]bool{
+		"true":  true,
+		"false": false,
+	}
+	fmt.Println(myMap2)
+	println()
+
+	cityMap := map[string]string{
+		"China":   "BeiJing",
+		"America": "NewYork",
+		"India":   "DeLi",
+		"Japan":   "Tokyo",
+	}
+	// 遍历
+	for key, val := range cityMap {
+		println(key, ":", val)
+	}
+	println()
+
+	// 删除
+	delete(cityMap, "Japan")
+	// 遍历
+	for key, val := range cityMap {
+		println(key, ":", val)
+	}
+	println()
+
+	// 修改
+	cityMap["India"] = "New DeLi"
+	// 遍历
+	for key, val := range cityMap {
+		println(key, ":", val)
+	}
+	println()
+
+	// 传参
+	valChange(cityMap)
+	// 遍历
+	for key, val := range cityMap {
+		println(key, ":", val)
+	}
+	println()
 }
