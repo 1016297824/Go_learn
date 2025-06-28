@@ -7,7 +7,9 @@ import "fmt"
 
 // 定义类和方法
 type Hero struct {
-	name  string
+	// 私有，在其它包不可访问
+	name string
+	// 注意：属性大写表示公有，在其它包中可以访问
 	Ad    int
 	Level int
 }
