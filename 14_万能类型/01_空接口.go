@@ -5,6 +5,7 @@ package main
 
 import "fmt"
 
+// interface{}被称作具体类型，其它如int，float等被称作静态类型
 func myFunc(arg interface{}) {
 	fmt.Println("myFunc is called...")
 	// interface{}的类型断言机制

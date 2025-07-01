@@ -7,3 +7,4 @@ Go汇总
     更改服务器地址：go env -w GOPROXY=https://goproxy.cn
 5.代码提示工具gopls：go install golang.org/x/tools/gopls@latest
 6.debug工具dlv：go install github.com/go-delve/delve/cmd/dlv@latest
+7.设置go环境[module]：go env -w GO111MODULE=auto
