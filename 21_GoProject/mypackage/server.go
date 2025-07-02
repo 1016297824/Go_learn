@@ -7,6 +7,8 @@ import (
 	"sync"
 )
 
+var Synchronous chan string = make(chan string)
+
 type Server struct {
 	Id   string
 	Port int
@@ -45,7 +47,7 @@ func (this *Server) Handler(conn net.Conn) {
 	this.BroadcastMessageSend(client, "已上线")
 
 	// 保证当前客户不会收到广播消息
-	endMsg := <-this.ServerMessage
+	endMsg := <-Synchronous
 	fmt.Println(endMsg)
 
 	// 将客户加入OnlineMap中
@@ -69,7 +71,7 @@ func (this *Server) ListenBroadcastMessage() {
 		}
 		this.mapLock.Unlock()
 
-		this.ServerMessage <- "广播完成"
+		Synchronous <- "广播完成"
 	}
 }
 
