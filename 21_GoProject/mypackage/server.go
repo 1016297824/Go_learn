@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"runtime"
 	"sync"
+	"time"
 )
 
-// var SynMsg chan string = make(chan string)
+// var SynMsg = make(chan string)
 
 type Server struct {
 	Id   string
@@ -34,6 +36,9 @@ func (this *Server) Handler(conn net.Conn) {
 	clientAddr := conn.RemoteAddr().String()
 	fmt.Println("连接建立成功：", clientAddr)
 
+	// conn close
+	defer conn.Close()
+
 	// 客户端Online
 	client := Client{
 		Name:          clientAddr,
@@ -51,6 +56,8 @@ func (this *Server) Handler(conn net.Conn) {
 	// 启动客户端广播监听
 	client.ListenClientMessage()
 
+	alive := make(chan bool)
+
 	// 创建向用户消息处理的进程
 	go func() {
 		buf := make([]byte, 1024)
@@ -59,30 +66,52 @@ func (this *Server) Handler(conn net.Conn) {
 			if n == 0 {
 				// this.BroadcastMessageSend(client, "已下线！")
 				client.OutlineClient()
-				fmt.Println("断开与[", client.Name, "]的连接")
+				fmt.Println("断开与[", client.Addr, "]的连接")
 				return
 			}
 
 			if err != nil && err != io.EOF {
 				fmt.Println("conn.Read err:", err)
 				client.OutlineClient()
-				fmt.Println("断开与[", client.Name, "]的连接")
+				fmt.Println("断开与[", client.Addr, "]的连接")
 				return
 			}
 
 			msg := string(buf[:n])
 			client.DoClientMsg(msg)
+
+			alive <- true
 		}
 	}()
 
 	// 阻塞当前Handler
-	select {
-	// case msg := <-SynMsg:
-	// 	if msg == "err" || msg == "end" {
-	// 		// 结束关闭连接
-	// 		conn.Close()
-	// 		return
-	// 	}
+	for {
+		select {
+		// case msg := <-SynMsg:
+		// 	if msg == "err" || msg == "end" {
+		// 		// 结束关闭连接
+		// 		conn.Close()
+		// 		return
+		// 	}
+		// 阻塞for循环，当alive接收到消息时结束阻塞
+		case <-alive:
+			// 什么都不做，进入下一个for循环
+
+		// 每次进入for循环计时器都会重置
+		// 当计时器时间到点时，触发阻塞
+		case <-time.After(300 * time.Second):
+			// 向客户端发送踢出消息
+			client.SendMsg("等待超时，你已被踢出！！！")
+
+			// 销毁客户端资源
+			close(client.ClientMessage)
+
+			// 关闭连接
+			conn.Close()
+
+			// 退出当前handler routine
+			runtime.Goexit() //或者直接：return
+		}
 	}
 }
 
@@ -116,6 +145,8 @@ func (this *Server) Start() {
 
 	// listen close
 	defer listener.Close()
+	// channel close
+	defer close(this.BroadcastMessage)
 
 	// 启用广播消息监听
 	go this.ListenBroadcastMessage()

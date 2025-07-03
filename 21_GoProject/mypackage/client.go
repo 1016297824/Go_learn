@@ -1,7 +1,10 @@
 // client
 package mypackage
 
-import "net"
+import (
+	"net"
+	"strings"
+)
 
 type Client struct {
 	Name          string
@@ -25,7 +28,7 @@ func (this *Client) OnlineClient() {
 
 	// 将客户加入OnlineMap中
 	this.server.mapLock.Lock()
-	this.server.OnlineMap[this.Name] = *this
+	this.server.OnlineMap[this.Addr] = *this
 	this.server.mapLock.Unlock()
 
 	// 广播当前客户端上线消息
@@ -36,7 +39,7 @@ func (this *Client) OnlineClient() {
 func (this *Client) OutlineClient() {
 	// 将客户从OnlineMap中移除
 	this.server.mapLock.Lock()
-	delete(this.server.OnlineMap, this.Name)
+	delete(this.server.OnlineMap, this.Addr)
 	this.server.mapLock.Unlock()
 
 	// 广播当前客户端下线消息
@@ -44,8 +47,64 @@ func (this *Client) OutlineClient() {
 	this.conn.Close()
 }
 
+// 向用户发送消息
+func (this *Client) SendMsg(msg string) {
+	this.conn.Write([]byte(msg))
+}
+
 // 用户消息处理
 func (this *Client) DoClientMsg(msg string) {
-	// 默认广播消息
-	this.server.BroadcastMessageSend(*this, msg)
+	if msg == "who" {
+		sendMsg := "在线的用户：\n"
+		this.server.mapLock.Lock()
+		for _, value := range this.server.OnlineMap {
+			if value.Addr != this.Addr {
+				sendMsg = sendMsg + value.Name + "\n"
+			}
+		}
+		this.server.mapLock.Unlock()
+		this.SendMsg(sendMsg)
+	} else if msg[:7] == "rename|" {
+		newName := msg[7:]
+		// 判断名字是否存在
+		exist := false
+		for _, value := range this.server.OnlineMap {
+			if value.Name == newName {
+				exist = true
+			}
+		}
+
+		if exist {
+			this.SendMsg("用户名已存在")
+		} else {
+			this.Name = newName
+			this.server.mapLock.Lock()
+			this.server.OnlineMap[this.Addr] = *this
+			this.server.mapLock.Unlock()
+			this.SendMsg("用户名修改成功")
+		}
+	} else if msg[:2] == "to" {
+		// 获取目标客户名
+		remotName := strings.Split(msg, "|")[1]
+		if remotName == "" {
+			this.SendMsg("请输入目标用户名")
+			return
+		}
+
+		// 判断目标客户端是否存在
+		exist := false
+		remotClient := Client{}
+		for _, value := range this.server.OnlineMap {
+			if remotName == value.Name {
+				exist = true
+				remotClient = value
+			}
+		}
+		if exist {
+			remotClient.SendMsg(strings.Split(msg, "|")[2])
+		}
+	} else {
+		// 默认广播消息
+		this.server.BroadcastMessageSend(*this, msg)
+	}
 }
