@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"strings"
 	"sync"
 )
 
-var SynMsg chan string = make(chan string)
+// var SynMsg chan string = make(chan string)
 
 type Server struct {
 	Id   string
@@ -32,50 +31,47 @@ func (this *Server) BroadcastMessageSend(client Client, msg string) {
 // handler function
 func (this *Server) Handler(conn net.Conn) {
 	// 当前连接的业务
-	fmt.Println("链接建立成功：", conn.RemoteAddr().String())
-
-	// 创建当前客户端
 	clientAddr := conn.RemoteAddr().String()
+	fmt.Println("连接建立成功：", clientAddr)
+
+	// 客户端Online
 	client := Client{
 		Name:          clientAddr,
 		Addr:          clientAddr,
 		ClientMessage: make(chan string),
 		conn:          conn,
+		server:        this,
 	}
+	client.OnlineClient()
+
+	// 保证当前客户不会收到广播消息
+	// onlineEndMsg := <-SynMsg
+	// fmt.Println(onlineEndMsg)
+
 	// 启动客户端广播监听
 	client.ListenClientMessage()
 
-	// 广播当前客户端上线消息
-	this.BroadcastMessageSend(client, "已上线！")
-
-	// 保证当前客户不会收到广播消息
-	onlineEndMsg := <-SynMsg
-	fmt.Println(onlineEndMsg)
-
-	// 将客户加入OnlineMap中
-	this.mapLock.Lock()
-	this.OnlineMap[client.Name] = client
-	this.mapLock.Unlock()
-
-	// 创建向用户广播消息的进程
+	// 创建向用户消息处理的进程
 	go func() {
 		buf := make([]byte, 1024)
 		for {
 			n, err := conn.Read(buf)
 			if n == 0 {
-				this.BroadcastMessageSend(client, "已下线！")
-				conn.Close()
+				// this.BroadcastMessageSend(client, "已下线！")
+				client.OutlineClient()
+				fmt.Println("断开与[", client.Name, "]的连接")
 				return
 			}
 
 			if err != nil && err != io.EOF {
 				fmt.Println("conn.Read err:", err)
-				conn.Close()
+				client.OutlineClient()
+				fmt.Println("断开与[", client.Name, "]的连接")
 				return
 			}
 
 			msg := string(buf[:n])
-			this.BroadcastMessageSend(client, msg)
+			client.DoClientMsg(msg)
 		}
 	}()
 
@@ -103,9 +99,9 @@ func (this *Server) ListenBroadcastMessage() {
 		this.mapLock.Unlock()
 
 		// 对比是否包含 <"已上线">
-		if strings.Contains(msg, "已上线") {
-			SynMsg <- "客户端上线广播完成"
-		}
+		// if strings.Contains(msg, "已上线") {
+		// 	SynMsg <- "客户端上线广播完成"
+		// }
 	}
 }
 
