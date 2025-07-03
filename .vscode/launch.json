@@ -9,7 +9,7 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "program": "18_结构体标签在JSON中的应用/01_tag与JSON.go",
+            "program": "21_GoProject/main.go",
             "env": {},
             "args": []
         }

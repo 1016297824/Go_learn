@@ -3,11 +3,13 @@ package mypackage
 
 import (
 	"fmt"
+	"io"
 	"net"
+	"strings"
 	"sync"
 )
 
-var Synchronous chan string = make(chan string)
+var SynMsg chan string = make(chan string)
 
 type Server struct {
 	Id   string
@@ -18,13 +20,13 @@ type Server struct {
 	mapLock   sync.RWMutex
 
 	// 消息广播的channel
-	ServerMessage chan string
+	BroadcastMessage chan string
 }
 
 // 广播消息
 func (this *Server) BroadcastMessageSend(client Client, msg string) {
 	sendMsg := "[" + client.Addr + "]" + ":" + msg
-	this.ServerMessage <- sendMsg
+	this.BroadcastMessage <- sendMsg
 }
 
 // handler function
@@ -44,25 +46,54 @@ func (this *Server) Handler(conn net.Conn) {
 	client.ListenClientMessage()
 
 	// 广播当前客户端上线消息
-	this.BroadcastMessageSend(client, "已上线")
+	this.BroadcastMessageSend(client, "已上线！")
 
 	// 保证当前客户不会收到广播消息
-	endMsg := <-Synchronous
-	fmt.Println(endMsg)
+	onlineEndMsg := <-SynMsg
+	fmt.Println(onlineEndMsg)
 
 	// 将客户加入OnlineMap中
 	this.mapLock.Lock()
 	this.OnlineMap[client.Name] = client
 	this.mapLock.Unlock()
 
+	// 创建向用户广播消息的进程
+	go func() {
+		buf := make([]byte, 1024)
+		for {
+			n, err := conn.Read(buf)
+			if n == 0 {
+				this.BroadcastMessageSend(client, "已下线！")
+				conn.Close()
+				return
+			}
+
+			if err != nil && err != io.EOF {
+				fmt.Println("conn.Read err:", err)
+				conn.Close()
+				return
+			}
+
+			msg := string(buf[:n])
+			this.BroadcastMessageSend(client, msg)
+		}
+	}()
+
 	// 阻塞当前Handler
-	select {}
+	select {
+	// case msg := <-SynMsg:
+	// 	if msg == "err" || msg == "end" {
+	// 		// 结束关闭连接
+	// 		conn.Close()
+	// 		return
+	// 	}
+	}
 }
 
 // 监听广播消息
 func (this *Server) ListenBroadcastMessage() {
 	for {
-		msg := <-this.ServerMessage
+		msg := <-this.BroadcastMessage
 
 		// 将消息发送给在线的客户端
 		this.mapLock.Lock()
@@ -71,7 +102,10 @@ func (this *Server) ListenBroadcastMessage() {
 		}
 		this.mapLock.Unlock()
 
-		Synchronous <- "广播完成"
+		// 对比是否包含 <"已上线">
+		if strings.Contains(msg, "已上线") {
+			SynMsg <- "客户端上线广播完成"
+		}
 	}
 }
 
