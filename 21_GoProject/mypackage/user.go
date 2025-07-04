@@ -25,7 +25,6 @@ func (this *User) ListenUserMessage() {
 
 // 用户上线处理
 func (this *User) OnlineUser() {
-
 	// 将客户加入OnlineMap中
 	this.server.mapLock.Lock()
 	this.server.OnlineMap[this.Addr] = *this
@@ -64,7 +63,7 @@ func (this *User) DoUserMsg(msg string) {
 		}
 		this.server.mapLock.Unlock()
 		this.SendMsg(sendMsg)
-	} else if msg[:7] == "rename|" {
+	} else if len(msg) >= 7 && msg[:7] == "rename|" {
 		newName := msg[7:]
 		// 判断名字是否存在
 		exist := false
@@ -83,7 +82,7 @@ func (this *User) DoUserMsg(msg string) {
 			this.server.mapLock.Unlock()
 			this.SendMsg("用户名修改成功")
 		}
-	} else if msg[:2] == "to" {
+	} else if len(msg) >= 2 && msg[:2] == "to" {
 		// 获取目标客户名
 		remotName := strings.Split(msg, "|")[1]
 		if remotName == "" {

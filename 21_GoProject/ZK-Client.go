@@ -29,6 +29,7 @@ func main() {
 
 	client.CreateConn()
 
+	go client.DoResponse()
 	go client.Run()
 
 	select {}
