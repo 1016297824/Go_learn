@@ -17,7 +17,7 @@ type Server struct {
 	Port int
 
 	// 在线用户列表
-	OnlineMap map[string]Client
+	OnlineMap map[string]User
 	mapLock   sync.RWMutex
 
 	// 消息广播的channel
@@ -25,36 +25,36 @@ type Server struct {
 }
 
 // 广播消息
-func (this *Server) BroadcastMessageSend(client Client, msg string) {
-	sendMsg := "[" + client.Addr + "]" + ":" + msg
+func (this *Server) BroadcastMessageSend(User User, msg string) {
+	sendMsg := "[" + User.Addr + "]" + ":" + msg
 	this.BroadcastMessage <- sendMsg
 }
 
 // handler function
 func (this *Server) Handler(conn net.Conn) {
 	// 当前连接的业务
-	clientAddr := conn.RemoteAddr().String()
-	fmt.Println("连接建立成功：", clientAddr)
+	UserAddr := conn.RemoteAddr().String()
+	fmt.Println("连接建立成功：", UserAddr)
 
 	// conn close
 	defer conn.Close()
 
 	// 客户端Online
-	client := Client{
-		Name:          clientAddr,
-		Addr:          clientAddr,
-		ClientMessage: make(chan string),
-		conn:          conn,
-		server:        this,
+	User := User{
+		Name:        UserAddr,
+		Addr:        UserAddr,
+		UserMessage: make(chan string),
+		conn:        conn,
+		server:      this,
 	}
-	client.OnlineClient()
+	User.OnlineUser()
 
 	// 保证当前客户不会收到广播消息
 	// onlineEndMsg := <-SynMsg
 	// fmt.Println(onlineEndMsg)
 
 	// 启动客户端广播监听
-	client.ListenClientMessage()
+	User.ListenUserMessage()
 
 	alive := make(chan bool)
 
@@ -64,21 +64,21 @@ func (this *Server) Handler(conn net.Conn) {
 		for {
 			n, err := conn.Read(buf)
 			if n == 0 {
-				// this.BroadcastMessageSend(client, "已下线！")
-				client.OutlineClient()
-				fmt.Println("断开与[", client.Addr, "]的连接")
+				// this.BroadcastMessageSend(User, "已下线！")
+				User.OutlineUser()
+				fmt.Println("断开与[", User.Addr, "]的连接")
 				return
 			}
 
 			if err != nil && err != io.EOF {
 				fmt.Println("conn.Read err:", err)
-				client.OutlineClient()
-				fmt.Println("断开与[", client.Addr, "]的连接")
+				User.OutlineUser()
+				fmt.Println("断开与[", User.Addr, "]的连接")
 				return
 			}
 
 			msg := string(buf[:n])
-			client.DoClientMsg(msg)
+			User.DoUserMsg(msg)
 
 			alive <- true
 		}
@@ -101,10 +101,10 @@ func (this *Server) Handler(conn net.Conn) {
 		// 当计时器时间到点时，触发阻塞
 		case <-time.After(300 * time.Second):
 			// 向客户端发送踢出消息
-			client.SendMsg("等待超时，你已被踢出！！！")
+			User.SendMsg("等待超时，你已被踢出！！！")
 
 			// 销毁客户端资源
-			close(client.ClientMessage)
+			close(User.UserMessage)
 
 			// 关闭连接
 			conn.Close()
@@ -122,8 +122,8 @@ func (this *Server) ListenBroadcastMessage() {
 
 		// 将消息发送给在线的客户端
 		this.mapLock.Lock()
-		for _, client := range this.OnlineMap {
-			client.ClientMessage <- msg
+		for _, User := range this.OnlineMap {
+			User.UserMessage <- msg
 		}
 		this.mapLock.Unlock()
 

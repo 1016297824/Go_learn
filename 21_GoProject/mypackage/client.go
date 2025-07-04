@@ -1,110 +1,67 @@
-// client
+// Client
 package mypackage
 
 import (
+	"fmt"
 	"net"
-	"strings"
 )
 
 type Client struct {
-	Name          string
-	Addr          string
-	ClientMessage chan string
-	conn          net.Conn
-	server        *Server
+	ServerIP   string
+	ServerPort int
+	Name       string
+	conn       net.Conn
+	Flag       int
 }
 
-func (this *Client) ListenClientMessage() {
-	go func() {
-		for {
-			msg := <-this.ClientMessage
-			this.conn.Write([]byte(msg + "\n"))
-		}
-	}()
+// 连接server
+func (this *Client) CreateConn() {
+	conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", this.ServerIP, this.ServerPort))
+	if err != nil {
+		fmt.Println("net.Dial err:", err)
+		return
+	}
+
+	this.conn = conn
+	fmt.Println("创建连接成功！")
 }
 
-// 用户上线处理
-func (this *Client) OnlineClient() {
+// 客户端菜单
+func (this *Client) menu() bool {
+	fmt.Println("1.公聊模式")
+	fmt.Println("2.私聊模式")
+	fmt.Println("3.更改用户名")
+	fmt.Println("0.退出登录")
+	fmt.Printf("请选择功能：")
 
-	// 将客户加入OnlineMap中
-	this.server.mapLock.Lock()
-	this.server.OnlineMap[this.Addr] = *this
-	this.server.mapLock.Unlock()
-
-	// 广播当前客户端上线消息
-	this.server.BroadcastMessageSend(*this, "已上线！")
-}
-
-// 用户下线处理
-func (this *Client) OutlineClient() {
-	// 将客户从OnlineMap中移除
-	this.server.mapLock.Lock()
-	delete(this.server.OnlineMap, this.Addr)
-	this.server.mapLock.Unlock()
-
-	// 广播当前客户端下线消息
-	this.server.BroadcastMessageSend(*this, "已下线！")
-	this.conn.Close()
-}
-
-// 向用户发送消息
-func (this *Client) SendMsg(msg string) {
-	this.conn.Write([]byte(msg))
-}
-
-// 用户消息处理
-func (this *Client) DoClientMsg(msg string) {
-	if msg == "who" {
-		sendMsg := "在线的用户：\n"
-		this.server.mapLock.Lock()
-		for _, value := range this.server.OnlineMap {
-			if value.Addr != this.Addr {
-				sendMsg = sendMsg + value.Name + "\n"
-			}
-		}
-		this.server.mapLock.Unlock()
-		this.SendMsg(sendMsg)
-	} else if msg[:7] == "rename|" {
-		newName := msg[7:]
-		// 判断名字是否存在
-		exist := false
-		for _, value := range this.server.OnlineMap {
-			if value.Name == newName {
-				exist = true
-			}
-		}
-
-		if exist {
-			this.SendMsg("用户名已存在")
-		} else {
-			this.Name = newName
-			this.server.mapLock.Lock()
-			this.server.OnlineMap[this.Addr] = *this
-			this.server.mapLock.Unlock()
-			this.SendMsg("用户名修改成功")
-		}
-	} else if msg[:2] == "to" {
-		// 获取目标客户名
-		remotName := strings.Split(msg, "|")[1]
-		if remotName == "" {
-			this.SendMsg("请输入目标用户名")
-			return
-		}
-
-		// 判断目标客户端是否存在
-		exist := false
-		remotClient := Client{}
-		for _, value := range this.server.OnlineMap {
-			if remotName == value.Name {
-				exist = true
-				remotClient = value
-			}
-		}
-		if exist {
-			remotClient.SendMsg(strings.Split(msg, "|")[2])
-		}
+	var flag int
+	fmt.Scan(&flag)
+	if flag < 0 || flag > 3 {
+		fmt.Println("请输入正确数字")
+		return false
 	} else {
-		// 默认广播消息
-		this.server.BroadcastMessageSend(*this, msg)
+		this.Flag = flag
+		return true
+	}
+}
+
+func (this *Client) Run() {
+	// 启动客户端服务
+	for this.Flag != 0 {
+		for this.menu() == false {
+		}
+
+		switch this.Flag {
+		case 1:
+			fmt.Println("开启公聊模式")
+		case 2:
+			fmt.Println("开启私聊模式")
+		case 3:
+			fmt.Println("更改用户名")
+		case 0:
+			fmt.Println("退出登录")
+		default:
+			continue
+		}
 	}
 }
